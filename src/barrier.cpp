@@ -10,26 +10,30 @@
 #include "barrier.h"
 
 
-barrier::barrier(int nrovers)
+barrier::barrier()
 :nh_private_("~")
 {
+     
+    
     // Seed random number generator
     srand(time(NULL));
     // Set Parameters
     // Experimental params
-    nh_private_.param<int>("nrovers",barrier::nrovers,nrovers); // ?? This might cause problems
+    nh_private_.param<int>("nrovers",barrier::nrovers,0); // ?? This might cause problems
     nh_private_.param<int>("F",barrier::F,2);
     nh_private_.param<int>("nbad",barrier::nbad,2);
     nh_private_.param<int>("ngood",barrier::ngood,barrier::nrovers-barrier::nbad);
     // Vector of rover numbers (e.g. [2,4,5] if you're using R2, R4, R5)
     nh_private_.param<std::vector<double> >("rover_numbers_list", barrier::rover_numbers_list, std::vector<double>());
+    // nh_private_.getParam("rover_numbers_list", rover_numbers_list);
     barrier::indices_tot = new int[barrier::nrovers];
     barrier::indices_bad = new int[barrier::nbad];
     barrier::indices_good = new int[barrier::nrovers-barrier::nbad];
-    int bob = 0;
+
     
     // Get a pair of random agent indices between 1 and 6 for malicious agents
-    while(1)    {
+    for(int bob =0;bob<barrier::nbad;bob++)    {
+        ROS_INFO("This worked 1 \n\n\n");
         if(bob==0)  {
             barrier::indices_bad[0] = (rand()%nrovers)+1;
         }  else {
@@ -79,9 +83,10 @@ barrier::barrier(int nrovers)
     
     // Set pubs and subs
     // Create vector of publishers
-
+    ROS_INFO("Value of nrovers: %d \n Length of rover_numbers_list: %d \n \n", nrovers, rover_numbers_list.size());
     for (int i = 0; i < nrovers; i++)
     {
+         ROS_INFO("i: %d", i);
         std::string topic_name = "/R" + std::to_string(static_cast<int>(rover_numbers_list[i])) + "/cmd_vel";
         pub_vector.push_back(nh.advertise<geometry_msgs::Twist>(topic_name, 10));
     }
@@ -91,6 +96,7 @@ barrier::barrier(int nrovers)
     
     // Subscriber
     // Vector of subscribers
+    
     for (int j = 0; j < rover_numbers_list.size(); j++)
     {
         std::string rover_number = std::to_string(static_cast<int>(rover_numbers_list[j]));
@@ -98,9 +104,10 @@ barrier::barrier(int nrovers)
         // See https://answers.ros.org/question/108551/using-subscribercallback-function-inside-of-a-class-c/?answer=108671#post-id-108671
         // for an explanation of boost::bind.
         sub_vector.push_back(nh.subscribe<geometry_msgs::TransformStamped>(sub_topic, 1, boost::bind(&barrier::transformstamped_subCallback, this, _1, j)));
-        
+         ROS_INFO("Created publisher for agent %d", j);
     }
     
+     ROS_INFO("This worked");
     // Initialise structs
     barrier::state_data.x = new double[nrovers];
     barrier::state_data.y = new double[nrovers];
@@ -330,8 +337,10 @@ void barrier::norm_based_filtering(std::vector<int>& in_neighbours,std::vector<i
     }
     sortrowsdescend(norm_diff_vector,0,size,2);
     
-    for(int i=0;i<size-barrier::F;i++)  {
-        unfiltered_neighbours.push_back(norm_diff_vector[i+F][1]);
+    if(size!=0) {
+        for(int i=0;i<size-barrier::F;i++)  {
+            unfiltered_neighbours.push_back(norm_diff_vector[i+F][1]);
+        }
     }
     deletematrixdouble(norm_diff_vector,size,2);
 }
@@ -503,7 +512,9 @@ void barrier::barrierpublisher(const ros::TimerEvent& event) {
 
 int main(int argc, char** argv) {
     ros::init(argc,argv,"Resilient_Barrier");
-    barrier Resilient_Barrier(6);
+    ROS_INFO("This worked 2 \n\n\n");
+    barrier Resilient_Barrier;
+    ROS_INFO("This worked 3 \n\n\n");
     ros::spin();
     return 0;
 }

@@ -59,7 +59,7 @@ struct control_cmd  {
 
 class barrier   {
 public:
-    barrier(int nrovers);
+    barrier();
     ~barrier();
 private:
     
