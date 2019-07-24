@@ -61,7 +61,9 @@ private:
     // Experiment Parameters
     int nrovers,F,nbad,ngood;
     int badagents[2];
-    int* indices_tot,indices_good,indices_bad;
+    int* indices_tot;
+    int* indices_good;
+    int* indices_bad;
     std::vector<double> rover_numbers_list;
     
     // Path parameters
@@ -72,7 +74,7 @@ private:
     double** prior_y_vector;
     
     // Agent parameters
-    double ds,Rs,Rc,el;
+    double ds,Rs,Rc,el,umax;
     double** Aprox;
     
     // Time parameters

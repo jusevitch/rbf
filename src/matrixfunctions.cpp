@@ -281,4 +281,5 @@ void sortrowsdescend(double**& target,int colindex,int length,int width)    {
             }
         }
     }
+    delete[] array;
 }
