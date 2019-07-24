@@ -6,12 +6,9 @@
 //  Copyright © 2019 Harvard Virgil Humphrey. All rights reserved.
 //
 
+
 #include "barrier.h"
-#include <random>
-#include "arrayfunctions.h"
-#include "matrixfunctions.h"
-#include <vector>
-#include "harveymaths.hpp"
+
 
 barrier::barrier(int nrovers)
 :nh_private_("~")
@@ -39,7 +36,7 @@ barrier::barrier(int nrovers)
             barrier::indices_bad[1] = (rand()%nrovers)+1;
         }
         bob++;
-        if(barrier::indices_bad[0]!=barrier::indices_bad[1] && bob>1;)    {
+        if(barrier::indices_bad[0]!=barrier::indices_bad[1] && bob>1)    {
             break;
         }
     }
@@ -85,22 +82,22 @@ barrier::barrier(int nrovers)
 
     for (int i = 0; i < nrovers; i++)
     {
-        std::string topic_name = "/R" + rover_numbers_list[i] + "/cmd_vel";
+        std::string topic_name = "/R" + std::to_string(static_cast<int>(rover_numbers_list[i])) + "/cmd_vel";
         pub_vector.push_back(nh.advertise<geometry_msgs::Twist>(topic_name, 10));
     }
     
     barrier::pub_timer = nh.createTimer(ros::Duration(0.02), &barrier::barrierpublisher, this);
-    barrier::dis_timer = nh.createTimer(ros::Duration(1), &IO_control_collision::disCallback, this);
+    // barrier::dis_timer = nh.createTimer(ros::Duration(1), &barrier::disCallback, this);
     
     // Subscriber
     // Vector of subscribers
     for (int j = 0; j < rover_numbers_list.size(); j++)
     {
-        int rover_number = std::to_string(static_cast<int>(rover_numbers_list[j]));
+        std::string rover_number = std::to_string(static_cast<int>(rover_numbers_list[j]));
         sub_topic = "/vicon/R" + rover_number + "/R" + rover_number;
         // See https://answers.ros.org/question/108551/using-subscribercallback-function-inside-of-a-class-c/?answer=108671#post-id-108671
         // for an explanation of boost::bind.
-        sub_topic.push_back(nh.subscribe(sub_topic, 1, boost::bind(&barrier::transformstamped_subCallback, this, _1, j)))
+        sub_vector.push_back(nh.subscribe<geometry_msgs::TransformStamped>(sub_topic, 1, boost::bind(&barrier::transformstamped_subCallback, this, _1, j)));
         
     }
     
@@ -148,7 +145,7 @@ barrier::~barrier() {
     delete[] barrier::input_data.w;
     delete[] barrier::circletheta;
     deletematrixdouble(barrier::tauvector,barrier::nrovers,2);
-    deletematrixdouble(barrier::y_vector,barrier::nrovers,2)l
+    deletematrixdouble(barrier::y_vector,barrier::nrovers,2);
     deletematrixdouble(barrier::prior_y_vector,barrier::nrovers,2);
     deletematrixdouble(barrier::Aprox,barrier::nrovers,barrier::nrovers);
     deletematrixdouble(barrier::u_data,barrier::nrovers,2);
@@ -162,12 +159,12 @@ void barrier::transformstamped_subCallback(const geometry_msgs::TransformStamped
         // E.g. if I use agents R2, R4, R5, the index numbers are {1,2,3} where 1 -> R2, 2 -> R4, 3 -> R5
         double head1,head2,head3,head4;
         // Time reading
-        barrier::state_data.header[rover_index] = msgs->header;
+        // barrier::state_data.header[rover_index] = msgs->header;
         barrier::state_data.x[rover_index] = msgs->transform.translation.x;
         barrier::state_data.y[rover_index] = msgs->transform.translation.y;
         
         // Orientation calculation
-        barrier::state_data.theta[i] = msgs->transform.translation.z;
+        barrier::state_data.theta[rover_index] = msgs->transform.translation.z;
         head1 = msgs->transform.rotation.x;
         head2 = msgs->transform.rotation.y;
         head3 = msgs->transform.rotation.z;
@@ -176,7 +173,7 @@ void barrier::transformstamped_subCallback(const geometry_msgs::TransformStamped
         tf::Matrix3x3 m(q);
         double roll,pitch,yaw;
         m.getRPY(roll,pitch,yaw);
-        barrier::theta[rover_index] = fmod(yaw+2*M_PI,2*M_PI);
+        barrier::state_data.theta[rover_index] = fmod(yaw+2*M_PI,2*M_PI);
     // }
 }
 void barrier::update_sparse()   {
@@ -243,75 +240,75 @@ void barrier::Psi_gradient_eij(double*& outvector,double y_ix,double y_iy,double
     outvector[1] = (barrier::Psi_eij(y_ix,y_iy+h,y_jx,y_jy,tauij)-Psi_eij(y_ix,y_iy-h,y_jx,y_jy,tauij))/(2*h);
 }
 
-void barrier::velocity_gradient_filtering(std::vector<double> in_neighbours,std::vector<double> filtered_neighbours,std::vector<double> unfiltered_neighbours,int index_good) {
-    bool empty = in_neighbours.empty();
-    double** yvel_times_T;
-    double** gradient_vector;
-    double** yij;
-    double** velocity_times_gradient;
-    double** filtered_neighbours;
-    double** unfiltered_neighbours;
-    int size = in_neighbours.size();
-    zerosdouble(yij,barrier::ngood,2);
-    zerosdouble(yvel_times_T,barrier::nrovers,2);
-    zerosdouble(gradient_vector,barrier::ngood,2);
-    zerosdouble(velocity_times_gradient,barrier::ngood,2);
-    if(empty==false) {
-        // Technically yvel would be calculated as yvel = 1/T(state_vector - prior_state_vector). But since we're just sorting by relative magnitude, and 1/T is a positive constant, the 1/T term can be omitted without changing the order of the values w.r.t the relative magnitude between vectors.
-        for(int i=0;i<barrier::nrovers;i++) {
-            for(int j=0;j<2;j++)    {
-                yvel_times_T[i][j] = barrier::y_vector[i][j]-barrier::prior_y_vector[i][j];
-            }
-        }
-        double yidot[2];
-        yidot[0] = yvel_times_T[index_good][0];
-        yidot[1] = yvel_times_T[index_good][1];
-        int jj;
-        double tauij[2];
-        for(int i=0;i<size;i++)   {
-            jj = in_neighbours.at(i);
-            jj = jj-1;
-            tauij[0] = tauvector[index_good][0]-tauvector[jj][0];
-            tauij[1] = tauvector[index_good][1]-tauvector[jj][1];
-            Psi_gradient_eij(gradient_vector[i],barrier::y_vector[index_good][0],barrier::y_vector[index_good][1],barrier::y_vector[jj][0],barrier::y_vector[jj][1],tauij);
-            yij[i][0] = yidot[0]-yvel_times_T[jj][0];
-            yij[i][1] = yidot[1]-yvel_times_T[jj][1];
-        }
+// void barrier::velocity_gradient_filtering(std::vector<int> in_neighbours,std::vector<int> filtered_neighbours,std::vector<int> unfiltered_neighbours,int index_good) {
+//     bool empty = in_neighbours.empty();
+//     double** yvel_times_T;
+//     double** gradient_vector;
+//     double** yij;
+//     double** velocity_times_gradient;
+//     double** filtered_neighbours;
+//     double** unfiltered_neighbours;
+//     int size = in_neighbours.size();
+//     zerosdouble(yij,barrier::ngood,2);
+//     zerosdouble(yvel_times_T,barrier::nrovers,2);
+//     zerosdouble(gradient_vector,barrier::ngood,2);
+//     zerosdouble(velocity_times_gradient,barrier::ngood,2);
+//     if(empty==false) {
+//         // Technically yvel would be calculated as yvel = 1/T(state_vector - prior_state_vector). But since we're just sorting by relative magnitude, and 1/T is a positive constant, the 1/T term can be omitted without changing the order of the values w.r.t the relative magnitude between vectors.
+//         for(int i=0;i<barrier::nrovers;i++) {
+//             for(int j=0;j<2;j++)    {
+//                 yvel_times_T[i][j] = barrier::y_vector[i][j]-barrier::prior_y_vector[i][j];
+//             }
+//         }
+//         double yidot[2];
+//         yidot[0] = yvel_times_T[index_good][0];
+//         yidot[1] = yvel_times_T[index_good][1];
+//         int jj;
+//         double tauij[2];
+//         for(int i=0;i<size;i++)   {
+//             jj = in_neighbours.at(i);
+//             jj = jj-1;
+//             tauij[0] = tauvector[index_good][0]-tauvector[jj][0];
+//             tauij[1] = tauvector[index_good][1]-tauvector[jj][1];
+//             Psi_gradient_eij(gradient_vector[i],barrier::y_vector[index_good][0],barrier::y_vector[index_good][1],barrier::y_vector[jj][0],barrier::y_vector[jj][1],tauij);
+//             yij[i][0] = yidot[0]-yvel_times_T[jj][0];
+//             yij[i][1] = yidot[1]-yvel_times_T[jj][1];
+//         }
         
-        // Create the list
-        for(int i=0;i<size;i++)   {
-            velocity_times_gradient[i][0] = yij[i][0]*gradient_vector[i][0]+yij[i][1]*gradient_vector[i][1];
-            velocity_times_gradient[i][1] = barrier::indices_good[i];
-        }
+//         // Create the list
+//         for(int i=0;i<size;i++)   {
+//             velocity_times_gradient[i][0] = yij[i][0]*gradient_vector[i][0]+yij[i][1]*gradient_vector[i][1];
+//             velocity_times_gradient[i][1] = barrier::indices_good[i];
+//         }
         
-        // Sort the list
-        sortrowsdescend(velocity_times_gradient,0,size,2);
+//         // Sort the list
+//         sortrowsdescend(velocity_times_gradient,0,size,2);
         
-        // Choose which list to go with
-        if(barrier::F<=size)  {
+//         // Choose which list to go with
+//         if(barrier::F<=size)  {
             
-            // Need to empty the vectors here first
-            for(int i=0;i<barrier::F;i++)   {
-                unfiltered_neighbours.push_back(velocity_times[i][1]);
-            }
-            for(int i=F;i<size;i++)   {
-                filtered_neighbours.push_back(velocity_times[i][1]);
-            }
-        }   else    {
+//             // Need to empty the vectors here first
+//             for(int i=0;i<barrier::F;i++)   {
+//                 unfiltered_neighbours.push_back(velocity_times[i][1]);
+//             }
+//             for(int i=F;i<size;i++)   {
+//                 filtered_neighbours.push_back(velocity_times[i][1]);
+//             }
+//         }   else    {
             
-            // Need to empty vectors here first
-            for(int i=0;i<size;i++) {
-                filtered_neighbours.push_back(velocity_times[i][1]);
-            }
-        }
-    }   else    {
-        // Empty the vectors
-    }
-    deletematrixdouble(yij,size,2);
-    deletematrixdouble(yvel_times_T,barrier::nrovers,2);
-    deletematrixdouble(gradient_vector,barrier::size,2);
-    deletematrixdouble(velocity_times_gradient,barrier::size,2);
-}
+//             // Need to empty vectors here first
+//             for(int i=0;i<size;i++) {
+//                 filtered_neighbours.push_back(velocity_times[i][1]);
+//             }
+//         }
+//     }   else    {
+//         // Empty the vectors
+//     }
+//     deletematrixdouble(yij,size,2);
+//     deletematrixdouble(yvel_times_T,barrier::nrovers,2);
+//     deletematrixdouble(gradient_vector,barrier::size,2);
+//     deletematrixdouble(velocity_times_gradient,barrier::size,2);
+// }
 
 void barrier::norm_based_filtering(std::vector<int>& in_neighbours,std::vector<int>& unfiltered_neighbours,int index_good) {
     double y_ix = barrier::y_vector[index_good][0];
@@ -439,38 +436,6 @@ void barrier::calculate_u() {
     delete[] outvector;
     delete[] Psi_collision_sum;
 }
-        
-        // Create the filtered in-neighbour list
-        //barrier::velocity_gradient_filtering(in_neighbours,filtered_neighbours,unfiltered_neighbours,i);
-        barrier::norm_based_filtering(in_neighbours,unfiltered_neighbours,i);
-        double yi_x,yi_y,yj_x,yj_y;
-        yi_x = barrier::y_vector[i][0];
-        yi_y = barrier::y_vector[i][1];
-        int index;
-        double tauij[2];
-        double* Psi_gradient_sum = new double[2];
-        zerosarraydouble(Psi_gradient_sum,2);
-        if(unfiltered_neighbours.empty()==false)    {
-            for(int jj=0;jj<unfiltered_neighbours.size();jj++)   {
-                index = unfiltered_neighbours.at(jj);
-                index = index-1;
-                yj_x = barrier::y_vector[index][0];
-                yj_y = barrier::y_vector[index][0];
-                tauij[0] = barrier::tauvector[i][0]-barrier::tauvector[index][0];
-                tauij[1] = barrier::tauvector[i][1]-barrier::tauvector[index][1];
-                Psi_gradient_eij(outvector,yi_x,yi_y,yj_x,yj_y,tauij);
-                Psi_gradient_sum[0]+=outvector[0];
-                Psi_gradient_sum[1]+=outvector[1];
-            }
-        }
-        double gain = 1.0;
-        barrier::u_data[i][0] = -(Psi_gradient_sum[0]+Psi_collision_sum[0])*gain;
-        barrier::u_data[i][1] = -(Psi_gradient_sum[1]+Psi_collision_sum[1])*gain;\
-        delete[] Psi_gradient_sum;
-    }
-    delete[] outvector;
-    delete[] Psi_collision_sum;
-}
 
 void barrier::unicycle_dynamics()   {
     
@@ -529,9 +494,9 @@ void barrier::barrierpublisher(const ros::TimerEvent& event) {
     barrier::calculate_u();
     barrier::unicycle_dynamics();
     for(int i=0;i<barrier::nrovers;i++) {
-        barrier::prior_data.x[i] = barrier::state_data.x[i]
-        barrier::prior_data.y[i] = barrier::state_data.y[i]
-        barrier::prior_data.theta[i] = barrier::state_data.theta[i]
+        barrier::prior_data.x[i] = barrier::state_data.x[i];
+        barrier::prior_data.y[i] = barrier::state_data.y[i];
+        barrier::prior_data.theta[i] = barrier::state_data.theta[i];
     }
     barrier::publishall();
 }

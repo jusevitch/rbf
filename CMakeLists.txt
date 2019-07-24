@@ -20,7 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
 find_package(Eigen3 REQUIRED)
-include_directories(${EIGEN3_INCLUDE_DIR})
+include_directories(${EIGEN3_INCLUDE_DIR} "${CMAKE_SOURCE_DIR}/src")
 # find_package(Eigen REQUIRED)
 
 ## System dependencies are found with CMake's conventions
@@ -162,10 +162,13 @@ include_directories(
 #   ${catkin_LIBRARIES}
 # )
 
-add_executable(barrier src/barrier.cpp src/barrier.h src/harveymaths.hpp src/arrayfunctions.h src/matrixfunctions.h)
+add_executable(barrier src/barrier.cpp src/barrier.h src/harveymaths.hpp src/harveymaths.cpp src/arrayfunctions.h src/arrayfunctions.cpp src/matrixfunctions.h src/matrixfunctions.cpp src/mathfunctions.h src/mathfunctions.cpp)
 add_dependencies(barrier ${catkin_EXPORTED_TARGETS})
 target_link_libraries(barrier ${catkin_LIBRARIES})
 # add_dependencies(barrier /* CUSTOM MESSAGE FILES HERE */)
+
+
+
 
 #############
 ## Install ##

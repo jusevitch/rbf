@@ -8,6 +8,7 @@
 
 #ifndef barrier_h
 #define barrier_h
+
 #include <thread>
 #include <chrono>
 #include <random>
@@ -27,7 +28,7 @@
 
 #include <trajectory_msgs/MultiDOFJointTrajectory.h>
 #include <geometry_msgs/PointStamped.h>
-#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/Twist.h>
 #include <nav_msgs/Odometry.h>
 //#include <state_graph_builder/graph.h>/
@@ -39,6 +40,10 @@
 #include <deque>
 #include <string>
 #include <algorithm>
+
+#include "arrayfunctions.h"
+#include "matrixfunctions.h"
+#include "harveymaths.hpp"
 
 struct pose {
     double* header;
@@ -97,6 +102,7 @@ private:
     int b;
     std::string b_str;
     std::string pub_topic;
+    std::vector<ros::Publisher> pub_vector;
     ros::Publisher pub;
     ros::Timer pub_timer;
     ros::Timer dis_timer;  // display timer, for debug
@@ -111,7 +117,7 @@ private:
     ros::Subscriber states_sub;
     
     // Callback functions
-    void transformstamped_subCallback(const geometry_msgs::TransformStamped::ConstPtr& msgs);
+    void transformstamped_subCallback(const geometry_msgs::TransformStamped::ConstPtr& msgs, int rover_index);
     void barrierpublisher(const ros::TimerEvent& event);
     void dispublisher(const ros::TimerEvent& event);
     void publishall();

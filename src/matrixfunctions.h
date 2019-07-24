@@ -35,4 +35,5 @@ void assignpartial(double**& target,double**& small,int startrow,int desiredleng
 void matrixsubtraction(double**& target,double**& matrixA,double**& matrixB,int length,int width);
 void matrixaddition(double**& target,double**& matrixA,double**& matrixB,int length,int width);
 void delete3Ddouble(double***& target,int length,int width,int depth);
+void sortrowsdescend(double**& target,int colindex,int length,int width);
 #endif /* matrixfunctions_h */

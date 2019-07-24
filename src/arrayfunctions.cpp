@@ -197,7 +197,7 @@ void zerosarraydouble(double*& target,int length) {
     }
 }
 
-void insertzerosdouble(double*& int length) {
+void insertzerosdouble(double*& target, int length) {
     for(int i=0;i<length;i++)   {
         target[i] = 0.0;
     }
