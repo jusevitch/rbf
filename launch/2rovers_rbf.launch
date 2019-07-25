@@ -3,7 +3,7 @@
   <arg default="50" name="umax"/>
   <!-- <arg default="[2, 3]" name="rover_numbers_list"/> -->
   <arg default="3.141592653589793" name="pi"/>
-  <arg default="1" name="ngood"/>
+  <arg default="2" name="ngood"/>
   <arg default="0.9" name="Rs"/>
   <arg default="0" name="F"/>
   <arg default="2" name="nrovers"/>

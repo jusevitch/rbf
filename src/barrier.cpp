@@ -185,6 +185,7 @@ void barrier::transformstamped_subCallback(const geometry_msgs::TransformStamped
 }
 void barrier::update_sparse()   {
     // Identifying all neighbouring agents with respect to agent i and the safety distsance
+    insertzerosdouble(barrier::Aprox,barrier::nrovers,barrier::nrovers);
     double stateix,stateiy,statejx,statejy,diffx,diffy,dist;
     for(int i=0;i<barrier::nrovers;i++) {
         stateix = barrier::state_data.x[i];
@@ -448,10 +449,10 @@ void barrier::calculate_u() {
 
 void barrier::unicycle_dynamics()   {
     
-    double umin_linear = 0.06;
+    double umin_linear = 0.1;
     double umin_angular;
     double umax_linear = 0.5;
-    double umax_angular = 3.0;
+    double umax_angular = 1.5;
     double linear_error,linear_temp,turn_error,turn_temp,turn_req,heading_req;
     double gain_linear = 0.1525;
     double gain_angular = 0.3050;
@@ -472,7 +473,7 @@ void barrier::unicycle_dynamics()   {
         if(linear_temp==0.0) {
             umin_angular = 1.2;
         }   else    {
-            umin_angular = 0.4;
+            umin_angular = 1.0;
         }
         
         if(turn_error>0)    {
@@ -502,6 +503,7 @@ void barrier::barrierpublisher(const ros::TimerEvent& event) {
     barrier::update_sparse();
     barrier::calculate_u();
     barrier::unicycle_dynamics();
+    printdoublemat(barrier::u_data,barrier::nrovers,2);
     for(int i=0;i<barrier::nrovers;i++) {
         barrier::prior_data.x[i] = barrier::state_data.x[i];
         barrier::prior_data.y[i] = barrier::state_data.y[i];
