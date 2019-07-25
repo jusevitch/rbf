@@ -58,15 +58,15 @@ barrier::barrier()
     
         
     // Path params
-    nh_private_.param<double>("radius",radius,1.5);
+    nh_private_.param<double>("radius",radius,0.7);
     nh_private_.param<double>("umax",umax,50);
     nh_private_.param<double>("pi",pi,3.14159265359);
     barrier::circletheta = new double[nrovers];
     zerosdouble(barrier::tauvector,nrovers,2); // From matrixfunctions.cpp
     for(int i=0;i<barrier::nrovers;i++) {
         barrier::circletheta[i] = i*(2*pi/barrier::nrovers);
-        barrier::tauvector[i][0] = cos(barrier::circletheta[i]);
-        barrier::tauvector[i][1] = sin(barrier::circletheta[i]);
+        barrier::tauvector[i][0] = radius*cos(barrier::circletheta[i]);
+        barrier::tauvector[i][1] = radius*sin(barrier::circletheta[i]);
     }
     zerosdouble(barrier::y_vector,nrovers,2);
     zerosdouble(barrier::prior_y_vector,nrovers,2);
@@ -207,31 +207,43 @@ double barrier::Psi_collision_ij(double xi,double yi,double xj,double yj)    {
     double diffX = xi-xj;
     double diffY = yi-yj;
     double norm = sqrt(diffX*diffX+diffY*diffY);
+    // std::cout<<"DiffX: "<<diffX<<" DiffY: "<<diffY<<" Norm: "<<norm<<std::endl;
+    // std::cout << "norm - Rs: " << norm-barrier::Rs << ", norm - ds: " << norm - barrier::ds << std::endl;
     double mu2 = 10000.0;
     double outscalar;
-    if(norm<=2*barrier::Rs)    {
+    if(norm<=barrier::Rs)    {
         if(norm>=barrier::ds)   {
-            outscalar = (norm-2*barrier::Rs)*(norm-2*barrier::Rs)/(norm-barrier::ds+(barrier::ds-2*barrier::Rs)*(barrier::ds-2*barrier::Rs)/mu2);
+            outscalar = ((norm-barrier::Rs)*(norm-barrier::Rs))/(norm-barrier::ds+(((barrier::ds-barrier::Rs)*(barrier::ds-barrier::Rs))/mu2));
         }
         else if(norm<barrier::ds)  {
             outscalar = mu2;
+            // std::cout << "foobar, outscalar = " << outscalar << std::endl;
         }
     }   else    {
         outscalar = 0;
+        // std::cout << "this is bad: norm - Rs: " << norm - Rs << ", norm - ds: " << norm - ds << std::endl;
     }
+    // std::cout << "foobar2: outscalar = " << outscalar << std::endl;
     return outscalar;
 }
 
 void barrier::Psi_gradient_collision(double*& outvector,double xi,double yi,double xj,double yj)   {
     double h = 0.001;
-    outvector[0] = (Psi_collision_ij(xi+h,yi,xj,yj)-Psi_collision_ij(xi-h,yi,xj,yj))/(2*h);
-    outvector[1] = (Psi_collision_ij(xi,yi+h,xj,yj)-Psi_collision_ij(xi,yi-h,xj,yj))/(2*h);
-    
+    double diffX = xi-xj;
+    double diffY = yi-yj;
+    double norm = sqrt(diffX*diffX+diffY*diffY);
+    if(norm<ds) {
+        outvector[0] = 5000000*(xj-xi)/norm;
+        outvector[1] = 5000000*(yj-yi)/norm;
+    }   else    {
+        outvector[0] = (Psi_collision_ij(xi+h,yi,xj,yj)-Psi_collision_ij(xi-h,yi,xj,yj))/(2*h);
+        outvector[1] = (Psi_collision_ij(xi,yi+h,xj,yj)-Psi_collision_ij(xi,yi-h,xj,yj))/(2*h);
+    }
     //printdoublearray(outvector,2);
 }
 
 double barrier::Psi_eij(double y_ix,double y_iy,double y_jx,double y_jy,double tauij[2])   {
-    double mu1=1000;
+    double mu1=100;
     double yij[2];
     yij[0] = y_ix-y_jx;
     yij[1] = y_iy-y_jy;
@@ -372,10 +384,11 @@ void barrier::calculate_u() {
     std::vector<int> in_neighbours;
     std::vector<int> filtered_neighbours;
     std::vector<int> unfiltered_neighbours;
+    std::vector<double> dist_neighbours;
     int index_good;
     unsigned long size;
     int indexj;
-    double statex,statey,statejx,statejy;
+    double statex,statey,statejx,statejy,norm,diffX,diffY;
     for(int i=0;i<barrier::ngood;i++)   {
         insertzerosdouble(Psi_collision_sum,2);
         index_good = barrier::indices_good[i];
@@ -385,8 +398,14 @@ void barrier::calculate_u() {
         
         // Find the elements of Aprox that are 1 for each agent row
         for(int j=0;j<barrier::nrovers;j++) {
+            statejx = barrier::state_data.x[j];
+            statejy = barrier::state_data.y[j];
+            diffX = statex-statejx;
+            diffY = statey-statejy;
+            norm = sqrt(diffX*diffX+diffY*diffY);
             if(barrier::Aprox[index_good][j]==1)  {
                 in_neighbours.push_back(j+1);
+                dist_neighbours.push_back(norm);
             }
         }
         
@@ -407,13 +426,18 @@ void barrier::calculate_u() {
         //printdoublearray(Psi_collision_sum,2);
         // Create the filtered in-neighbour list
         //barrier::velocity_gradient_filtering(in_neighbours,filtered_neighbours,unfiltered_neighbours,i);
+
+        //printdoublearray(Psi_collision_sum,2);
+
         barrier::norm_based_filtering(in_neighbours,unfiltered_neighbours,index_good);
+
+        std::cout<<std::endl;
         double yi_x,yi_y,yj_x,yj_y;
         yi_x = barrier::y_vector[index_good][0];
         yi_y = barrier::y_vector[index_good][1];
         int index;
         double tauij[2];
-        insertzerosdouble(Psi_gradient_sum,2);
+        // insertzerosdouble(Psi_gradient_sum,2);
         if(unfiltered_neighbours.empty()==false)    {
             for(int jj=0;jj<unfiltered_neighbours.size();jj++)   {
                 index = unfiltered_neighbours.at(jj);
@@ -423,11 +447,11 @@ void barrier::calculate_u() {
                 tauij[0] = barrier::tauvector[index_good][0]-barrier::tauvector[index][0];
                 tauij[1] = barrier::tauvector[index_good][1]-barrier::tauvector[index][1];
                 Psi_gradient_eij(outvector,yi_x,yi_y,yj_x,yj_y,tauij);
-                Psi_gradient_sum[0]+=outvector[0];
                 Psi_gradient_sum[1]+=outvector[1];
             }
         }
-        double gain = 10.0;
+        std::cout<<"Agent number: "<<index_good+1<<" Collision avoidance term: "<<Psi_collision_sum[0]<<" "<<Psi_collision_sum[1]<<" Gradient term: "<<Psi_gradient_sum[0]<<" "<<Psi_gradient_sum[1]<<std::endl;
+        double gain = 1.0;
         barrier::u_data[index_good][0] = -(Psi_gradient_sum[0]+Psi_collision_sum[0])*gain;
         barrier::u_data[index_good][1] = -(Psi_gradient_sum[1]+Psi_collision_sum[1])*gain;
         insertzerosdouble(Psi_gradient_sum,2);
@@ -438,6 +462,7 @@ void barrier::calculate_u() {
             barrier::u_data[index_good][1] = (barrier::u_data[index_good][1]/norm2)*barrier::umax;
         }
         //printdoublemat(barrier::u_data,6,2);
+        dist_neighbours.clear();
         in_neighbours.clear();
         filtered_neighbours.clear();
         unfiltered_neighbours.clear();
@@ -449,14 +474,17 @@ void barrier::calculate_u() {
 
 void barrier::unicycle_dynamics()   {
     
-    double umin_linear = 0.1;
+    double umin_linear = 0.06;
     double umin_angular;
-    double umax_linear = 0.5;
+    double umax_linear = 0.3;
     double umax_angular = 1.5;
     double linear_error,linear_temp,turn_error,turn_temp,turn_req,heading_req;
     double gain_linear = 0.1525;
     double gain_angular = 0.3050;
+    double u_norm,delta_norm,distX,distY;
     for(int i=0;i<barrier::nrovers;i++)    {
+        std::cout<<"Agent number: "<<i+1<<" U_data, ";
+        printdoublearray(barrier::u_data[i],2);
         heading_req = atan2(barrier::u_data[i][1],barrier::u_data[i][0]);
         turn_req = heading_req-barrier::state_data.theta[i];
         turn_error = wrap2pi(turn_req);
@@ -473,7 +501,7 @@ void barrier::unicycle_dynamics()   {
         if(linear_temp==0.0) {
             umin_angular = 1.2;
         }   else    {
-            umin_angular = 1.0;
+            umin_angular = 0.5;
         }
         
         if(turn_error>0)    {
@@ -491,7 +519,17 @@ void barrier::unicycle_dynamics()   {
             turn_temp = 0;
         }
         
-        
+        //Guards
+        u_norm = sqrt(barrier::u_data[i][0]*barrier::u_data[i][0]+barrier::u_data[i][1]*barrier::u_data[i][1]);
+        distX = barrier::state_data.x[i]-barrier::tauvector[i][0];
+        distY = barrier::state_data.y[i]-barrier::tauvector[i][1];
+        delta_norm = sqrt(distX*distX+distY*distY);
+        // std::cout<<"Input norm is: "<<u_norm<<" and distance norm is: "<<delta_norm<<std::endl;
+        if(u_norm<0.15 || delta_norm<0.05)  {
+            linear_temp = 0;
+            turn_temp = 0;
+        }
+        std::cout<<"Forward input: "<<linear_temp<<" Turn input: "<<turn_temp<<std::endl;
         // Assign to the publishing message
         barrier::input_data.v[i] = linear_temp;
         barrier::input_data.w[i] = turn_temp;
@@ -503,7 +541,7 @@ void barrier::barrierpublisher(const ros::TimerEvent& event) {
     barrier::update_sparse();
     barrier::calculate_u();
     barrier::unicycle_dynamics();
-    printdoublemat(barrier::u_data,barrier::nrovers,2);
+    //printdoublemat(barrier::u_data,barrier::nrovers,2);
     for(int i=0;i<barrier::nrovers;i++) {
         barrier::prior_data.x[i] = barrier::state_data.x[i];
         barrier::prior_data.y[i] = barrier::state_data.y[i];

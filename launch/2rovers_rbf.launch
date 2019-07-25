@@ -3,15 +3,15 @@
   <arg default="50" name="umax"/>
   <!-- <arg default="[2, 3]" name="rover_numbers_list"/> -->
   <arg default="3.141592653589793" name="pi"/>
-  <arg default="2" name="ngood"/>
-  <arg default="0.9" name="Rs"/>
+  <arg default="4" name="ngood"/>
+  <arg default="1.0" name="Rs"/>
   <arg default="0" name="F"/>
-  <arg default="2" name="nrovers"/>
-  <arg default="6" name="radius"/>
-  <arg default="1.2" name="Rc"/>
+  <arg default="4" name="nrovers"/>
+  <arg default="1.2" name="radius"/>
+  <arg default="5" name="Rc"/>
   <arg default="0" name="nbad"/>
-  <arg default="0.7" name="ds"/>
-  <arg default="1.0" name="el"/>
+  <arg default="0.8" name="ds"/>
+  <arg default="4.0" name="el"/>
   <node launch-prefix="xterm -e gdb -ex run --args" name="barrier_node" output="screen" pkg="rbf" type="barrier">
     <param name="nrovers" value="$(arg nrovers)"/>
     <param name="F" value="$(arg F)"/>
@@ -25,7 +25,7 @@
     <param name="Rs" value="$(arg Rs)"/>
     <param name="Rc" value="$(arg Rc)"/>
     <param name="el" value="$(arg el)"/>
-    <rosparam param="rover_numbers_list">[2.0, 3.0]</rosparam>
+    <rosparam param="rover_numbers_list">[2.0, 3.0, 4.0, 5.0]</rosparam>
   </node>
 </launch>
 
