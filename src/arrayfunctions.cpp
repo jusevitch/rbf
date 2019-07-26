@@ -31,9 +31,9 @@ bool isequal(double*& array1,double*& array2,int length)    {
 void sortascend(int*& array,int length)    {
     int number = 0;
     for(int i=0;i<length;i++)   {
-        number = array[i];
         for(int j=i;j<length;j++)   {
-            if(number>array[j]) {
+            if(array[i]>array[j]) {
+                number = array[i];
                 array[i] = array[j];
                 array[j] = number;
             }

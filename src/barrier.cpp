@@ -20,8 +20,8 @@ barrier::barrier()
     // Set Parameters
     // Experimental params
     nh_private_.param<int>("nrovers",barrier::nrovers,0); // ?? This might cause problems
-    nh_private_.param<int>("F",barrier::F,2);
-    nh_private_.param<int>("nbad",barrier::nbad,2);
+    nh_private_.param<int>("F",barrier::F,1);
+    nh_private_.param<int>("nbad",barrier::nbad,1);
     nh_private_.param<int>("ngood",barrier::ngood,barrier::nrovers-barrier::nbad);
     // Vector of rover numbers (e.g. [2,4,5] if you're using R2, R4, R5)
     nh_private_.param<std::vector<double> >("rover_numbers_list", barrier::rover_numbers_list, std::vector<double>());
@@ -32,16 +32,25 @@ barrier::barrier()
 
     
     // Get a pair of random agent indices between 1 and 6 for malicious agents
-    for(int bob =0;bob<barrier::nbad;bob++)    {
-        ROS_INFO("This worked 1 \n\n\n");
-        if(bob==0)  {
-            barrier::indices_bad[0] = (rand()%nrovers)+1;
-        }  else {
+    // for(int bob =0;bob<barrier::nbad;bob++)    {
+    //     ROS_INFO("This worked 1 \n\n\n");
+    //     if(bob==0)  {
+    //         barrier::indices_bad[0] = (rand()%nrovers)+1;
+    //     }  else {
+    //         barrier::indices_bad[1] = (rand()%nrovers)+1;
+    //     }
+    //     bob++;
+    //     if(barrier::indices_bad[0]!=barrier::indices_bad[1] && bob>1)    {
+    //         break;
+    //     }
+    // }
+
+    //barrier::indices_bad[0] = (rand()%nrovers)+1;
+    barrier::indices_bad[0] = (rand()%nrovers)+1;
+    if(barrier::nbad>1) {
+        barrier::indices_bad[1] = indices_bad[0];
+        while(barrier::indices_bad[1]==barrier::indices_bad[0]) {
             barrier::indices_bad[1] = (rand()%nrovers)+1;
-        }
-        bob++;
-        if(barrier::indices_bad[0]!=barrier::indices_bad[1] && bob>1)    {
-            break;
         }
     }
     int fred = 0; // Counter for making list of good agents
@@ -349,7 +358,8 @@ void barrier::norm_based_filtering(std::vector<int>& in_neighbours,std::vector<i
         norm_diff_vector[i][1] = jj+1;
     }
     sortrowsdescend(norm_diff_vector,0,size,2);
-    
+    std::cout<<" Sorted list: "<<std::endl;
+    printdoublemat(norm_diff_vector,size,2);
     if(size!=0) {
         for(int i=0;i<size-barrier::F;i++)  {
             unfiltered_neighbours.push_back(norm_diff_vector[i+F][1]);
@@ -430,7 +440,18 @@ void barrier::calculate_u() {
         //printdoublearray(Psi_collision_sum,2);
 
         barrier::norm_based_filtering(in_neighbours,unfiltered_neighbours,index_good);
-
+        std::cout<<"in_neighbours is: ";
+        for(int k=0;k<in_neighbours.size();k++) {
+            std::cout<<in_neighbours.at(k)<<" ";
+        }
+        std::cout<<std::endl;
+        std::cout<<"unfiltered_neighbours is: ";
+        for(int k=0;k<unfiltered_neighbours.size();k++) {
+            std::cout<<in_neighbours.at(k)<<" ";
+        }
+        std::cout<<std::endl;
+        std::cout<<"Bad agent is: ";
+        printintarray(barrier::indices_bad,barrier::nbad);
         std::cout<<std::endl;
         double yi_x,yi_y,yj_x,yj_y;
         yi_x = barrier::y_vector[index_good][0];
@@ -447,10 +468,11 @@ void barrier::calculate_u() {
                 tauij[0] = barrier::tauvector[index_good][0]-barrier::tauvector[index][0];
                 tauij[1] = barrier::tauvector[index_good][1]-barrier::tauvector[index][1];
                 Psi_gradient_eij(outvector,yi_x,yi_y,yj_x,yj_y,tauij);
+                Psi_gradient_sum[0]+=outvector[0];
                 Psi_gradient_sum[1]+=outvector[1];
             }
         }
-        std::cout<<"Agent number: "<<index_good+1<<" Collision avoidance term: "<<Psi_collision_sum[0]<<" "<<Psi_collision_sum[1]<<" Gradient term: "<<Psi_gradient_sum[0]<<" "<<Psi_gradient_sum[1]<<std::endl;
+        // std::cout<<"Agent number: "<<index_good+1<<" Collision avoidance term: "<<Psi_collision_sum[0]<<" "<<Psi_collision_sum[1]<<" Gradient term: "<<Psi_gradient_sum[0]<<" "<<Psi_gradient_sum[1]<<std::endl;
         double gain = 1.0;
         barrier::u_data[index_good][0] = -(Psi_gradient_sum[0]+Psi_collision_sum[0])*gain;
         barrier::u_data[index_good][1] = -(Psi_gradient_sum[1]+Psi_collision_sum[1])*gain;
@@ -483,7 +505,7 @@ void barrier::unicycle_dynamics()   {
     double gain_angular = 0.3050;
     double u_norm,delta_norm,distX,distY;
     for(int i=0;i<barrier::nrovers;i++)    {
-        std::cout<<"Agent number: "<<i+1<<" U_data, ";
+        //std::cout<<"Agent number: "<<i+1<<" U_data, ";
         printdoublearray(barrier::u_data[i],2);
         heading_req = atan2(barrier::u_data[i][1],barrier::u_data[i][0]);
         turn_req = heading_req-barrier::state_data.theta[i];
@@ -525,11 +547,11 @@ void barrier::unicycle_dynamics()   {
         distY = barrier::state_data.y[i]-barrier::tauvector[i][1];
         delta_norm = sqrt(distX*distX+distY*distY);
         // std::cout<<"Input norm is: "<<u_norm<<" and distance norm is: "<<delta_norm<<std::endl;
-        if(u_norm<0.15 || delta_norm<0.05)  {
+        if(u_norm<0.15)  {
             linear_temp = 0;
             turn_temp = 0;
         }
-        std::cout<<"Forward input: "<<linear_temp<<" Turn input: "<<turn_temp<<std::endl;
+        //std::cout<<"Forward input: "<<linear_temp<<" Turn input: "<<turn_temp<<std::endl;
         // Assign to the publishing message
         barrier::input_data.v[i] = linear_temp;
         barrier::input_data.w[i] = turn_temp;

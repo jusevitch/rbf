@@ -271,9 +271,9 @@ void delete3Ddouble(double***& target,int length,int width,int depth)    {
 void sortrowsdescend(double**& target,int colindex,int length,int width)    {
     double* array = new double[width];
     for(int i=0;i<length;i++)   {
-        arrayassigndouble(array,target[i],width);
         for(int j=i;j<length;j++)   {
-            if(array[colindex]<target[i][colindex]) {
+            if(target[i][colindex]<target[j][colindex]) {
+                arrayassigndouble(array,target[i],width);
                 for(int k=0;k<width;k++)    {
                     target[i][k] = target[j][k];
                     target[j][k] = array[k];
